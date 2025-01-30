@@ -1,87 +1,117 @@
 package ma.skypay.services;
 
 import ma.skypay.interfaces.AccountService;
-import ma.skypay.utils.DateUtils;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import ma.skypay.interfaces.StatementPrinter;
+import ma.skypay.models.Transaction;
+import ma.skypay.interfaces.TransactionRepository;
 
 import java.time.Clock;
-//import java.time.Instant;
-//import java.time.LocalDate;
-//import java.time.ZoneId;
-//import java.time.format.DateTimeFormatter;
-//import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
 
 public class Account implements AccountService {
+    private final TransactionRepository repository;
+    private final StatementPrinter printer;
     private final Clock clock;
-    private final List<Transaction> transactions = new ArrayList<>();
     private int balance = 0;
 
-    public Account() {
-        this(Clock.systemDefaultZone());
-    }
-
-    public Account(Clock clock) {
+    public Account(TransactionRepository repository, StatementPrinter printer, Clock clock) {
+        this.repository = repository;
+        this.printer = printer;
         this.clock = clock;
     }
 
     @Override
     public void deposit(int amount) {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Deposit amount must be positive");
-        }
-        processTransaction(amount);
+        validatePositiveAmount(amount);
+        updateBalanceAndStoreTransaction(amount);
     }
 
     @Override
     public void withdraw(int amount) {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Withdrawal amount must be positive");
-        }
-        if (amount > balance) {
-            throw new IllegalArgumentException("Insufficient funds");
-        }
-        processTransaction(-amount);
-    }
-
-    public int getBalance() {
-        return balance;
-    }
-
-    public void setBalance(int balance) {
-        this.balance = balance;
-    }
-
-    private void processTransaction(int amount) {
-        balance += amount;
-        LocalDate date = LocalDate.now(clock);
-        String formattedDate = DateUtils.formatDate(date);
-        transactions.add(new Transaction(formattedDate, amount, balance));
+        validatePositiveAmount(amount);
+        if (amount > balance) throw new IllegalArgumentException("Insufficient funds");
+        updateBalanceAndStoreTransaction(-amount);
     }
 
     @Override
     public void printStatement() {
-        System.out.println("Date\t\t||\tAmount\t||\tBalance");
-        for (int i = transactions.size() - 1; i >= 0; i--) {
-            Transaction transaction = transactions.get(i);
-//            System.out.printf("%s \t||\t %d \t||\t %d%n", transaction.date, transaction.amount, transaction.balance);
-            System.out.printf("%s\t||\t%d\t||\t%d%n",
-                    transaction.date, transaction.amount, transaction.balance);
-        }
+        printer.print(repository.getAllTransactions());
     }
 
-    private static class Transaction {
-        private final String date;
-        private final int amount;
-        private final int balance;
+    private void updateBalanceAndStoreTransaction(int amount) {
+        balance += amount;
+        LocalDate date = LocalDate.now(clock);
+        repository.addTransaction(new Transaction(date, amount, balance));
+    }
 
-        Transaction(String date, int amount, int balance) {
-            this.date = date;
-            this.amount = amount;
-            this.balance = balance;
-        }
+    private void validatePositiveAmount(int amount) {
+        if (amount <= 0) throw new IllegalArgumentException("Amount must be positive");
     }
 }
+
+
+// This was my first version of the Account class, I have refactored it to the above version so it follows
+// the Single Responsibility Principle (SRP) and the Mockist TDD approach :)
+
+//public class Account implements AccountService {
+//    private final Clock clock;
+//    private final List<Transaction> transactions = new ArrayList<>();
+//    private int balance = 0;
+//
+//    public Account() {
+//        this(Clock.systemDefaultZone());
+//    }
+//
+//    public Account(Clock clock) {
+//        this.clock = clock;
+//    }
+//
+//    @Override
+//    public void deposit(int amount) {
+//        if (amount <= 0) {
+//            throw new IllegalArgumentException("Deposit amount must be positive");
+//        }
+//        processTransaction(amount);
+//    }
+//
+//    @Override
+//    public void withdraw(int amount) {
+//        if (amount <= 0) {
+//            throw new IllegalArgumentException("Withdrawal amount must be positive");
+//        }
+//        if (amount > balance) {
+//            throw new IllegalArgumentException("Insufficient funds");
+//        }
+//        processTransaction(-amount);
+//    }
+//
+//    private void processTransaction(int amount) {
+//        balance += amount;
+//        LocalDate date = LocalDate.now(clock);
+//        String formattedDate = DateUtils.formatDate(date);
+//        transactions.add(new Transaction(formattedDate, amount, balance));
+//    }
+//
+//    @Override
+//    public void printStatement() {
+//        System.out.println("Date\t\t||\tAmount\t||\tBalance");
+//        for (int i = transactions.size() - 1; i >= 0; i--) {
+//            Transaction transaction = transactions.get(i);
+////            System.out.printf("%s \t||\t %d \t||\t %d%n", transaction.date, transaction.amount, transaction.balance);
+//            System.out.printf("%s\t||\t%d\t||\t%d%n",
+//                    transaction.date, transaction.amount, transaction.balance);
+//        }
+//    }
+//
+//    private static class Transaction {
+//        private final String date;
+//        private final int amount;
+//        private final int balance;
+//
+//        Transaction(String date, int amount, int balance) {
+//            this.date = date;
+//            this.amount = amount;
+//            this.balance = balance;
+//        }
+//    }
+//}
